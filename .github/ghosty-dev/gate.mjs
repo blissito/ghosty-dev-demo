@@ -4,7 +4,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, appendFileSync, realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { findValidEvidence } from './evidence.mjs';
+import { findValidEvidence, findRevisionFor } from './evidence.mjs';
 
 const CLOSING = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)\b/gi;
 
@@ -18,10 +18,23 @@ export function evaluatePullRequest(pr, fetchIssue) {
   if (refs.length === 0) {
     return { ok: false, lines: ['El PR no cierra ningún pendiente: agrega «Closes #n» a la descripción.'] };
   }
+  const sha = pr.head?.sha || '';
+  const short = sha.slice(0, 7);
   const lines = [];
   let ok = true;
   for (const n of refs) {
     const issue = fetchIssue(n);
+    // Revisión: otro agente con contexto limpio, del commit exacto que se va a mergear.
+    const rev = findRevisionFor(issue.comments, sha);
+    if (!rev) {
+      ok = false;
+      lines.push(`#${n}: falta la revisión del commit ${short} (ghosty-dev review ${n}).`);
+    } else if (rev.open > 0) {
+      ok = false;
+      lines.push(`#${n}: la revisión del commit ${short} tiene ${rev.open} hallazgo(s) abierto(s).`);
+    } else {
+      lines.push(`#${n}: revisión del commit ${short} sin hallazgos abiertos.`);
+    }
     if (findValidEvidence(issue.comments, issue.body)) {
       lines.push(`#${n}: evidencia válida.`);
     } else {

@@ -98,3 +98,45 @@ export function findValidEvidence(comments = [], issueBody = '') {
   }
   return null;
 }
+
+// ---------- revisión (Cognition: el revisor no comparte contexto; Anthropic: quien escribe se califica de más) ----------
+
+export const REVISION_MARKER = '<!-- ghosty-dev:revision v0.1';
+const OPEN_FINDINGS = /hallazgos abiertos:\s*(\d+)/i;
+
+// Valida el cuerpo que publica el revisor. Regresa { ok, errors, open }.
+export function validateRevision(md) {
+  const errors = [];
+  const s = parseSections(md);
+  const body = section(s, 'revision');
+  if (body === null) return { ok: false, errors: ['Falta la sección «Revisión».'], open: null };
+  const blocks = [...body.matchAll(/```[^\n]*\n([\s\S]*?)```/g)].map((m) => m[1]);
+  const lines = blocks.join('\n').split('\n').filter((l) => l.trim());
+  const commands = lines.filter((l) => l.trimStart().startsWith('$ '));
+  if (commands.length === 0) errors.push('«Revisión» necesita un bloque con las pruebas que corriste («$ …») y su salida.');
+  else if (lines.length === commands.length) errors.push('«Revisión» trae comandos pero no su salida.');
+  const attacks = parseChecklist(body);
+  if (attacks.length === 0) errors.push('«Revisión» necesita la lista de ataques: «- [x] aguantó …» o «- [ ] lo rompió …».');
+  const m = body.match(OPEN_FINDINGS);
+  if (!m) errors.push('Falta el renglón «Hallazgos abiertos: N».');
+  const open = m ? Number(m[1]) : null;
+  const failed = attacks.filter((a) => !a.done).length;
+  if (m && open !== failed) errors.push(`«Hallazgos abiertos: ${open}» no cuadra con ${failed} ataque(s) sin palomear.`);
+  return { ok: errors.length === 0, errors, open };
+}
+
+export function formatRevision(number, sha, md) {
+  return `${REVISION_MARKER} sha=${sha} -->\n**Revisión del pendiente #${number}, commit ${sha.slice(0, 7)}**\n\n${md.trim()}\n`;
+}
+
+// La última revisión válida del commit exacto (o null). Un push nuevo invalida las anteriores.
+export function findRevisionFor(comments = [], sha) {
+  for (const c of [...comments].reverse()) {
+    const body = c.body || '';
+    const m = body.match(/<!-- ghosty-dev:revision v0\.1 sha=([0-9a-f]{7,40}) -->/);
+    if (!m || !sha || !(sha.startsWith(m[1]) || m[1].startsWith(sha))) continue;
+    const r = validateRevision(body);
+    if (r.ok) return { comment: c, open: r.open };
+  }
+  return null;
+}
