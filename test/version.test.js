@@ -24,8 +24,8 @@ test('GET /version responde 200 con la versión de package.json', async () => {
   assert.deepEqual(await res.json(), { version: pkg.version });
 });
 
-test('app.js y server.js no traen la versión escrita a mano', () => {
-  for (const file of ['../app.js', '../server.js']) {
+test('el código no trae la versión escrita a mano', () => {
+  for (const file of ['../app.js', '../server.js', '../server.mjs', '../version.mjs']) {
     const src = readFileSync(new URL(file, import.meta.url), 'utf8');
     assert.ok(!src.includes(pkg.version), `${file} contiene "${pkg.version}"`);
   }
