@@ -37,10 +37,19 @@ function raw(request) {
 // Arranca un comando y dice si llegó a escuchar
 function start(cmd, args, cwd, env = {}) {
   return new Promise((resolve) => {
-    const child = spawn(cmd, args, { cwd, env: { ...process.env, PORT: '0', ...env } });
+    // detached: el hijo encabeza su propio grupo de procesos, así se puede matar completo
+    const child = spawn(cmd, args, { cwd, detached: true, env: { ...process.env, PORT: '0', ...env } });
     let out = '';
     let done = false;
-    const finish = (r) => { if (!done) { done = true; child.kill(); resolve(r); } };
+    // Mata el grupo entero: en Linux, matar sólo a npm deja vivo al node server.js que lanzó
+    const finish = (r) => {
+      if (done) return;
+      done = true;
+      try { process.kill(-child.pid, 'SIGKILL'); } catch {}
+      child.stdout.destroy();
+      child.stderr.destroy();
+      resolve(r);
+    };
     child.stdout.on('data', (c) => {
       out += c;
       if (/Escuchando/.test(out)) finish({ listened: true, out });
