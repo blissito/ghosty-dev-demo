@@ -20,9 +20,17 @@ gh pr diff <pr>                                     # qué se cambió
 1. Abre el PR en un worktree tuyo y trabaja ahí:
    `git fetch origin <rama> && git worktree add --detach ../rev-<n> origin/<rama>`.
 2. Piensa cómo se rompe el cambio: entradas raras o mal formadas, valores vacíos o enormes, errores que tumban
-   el proceso, casos que los criterios no dicen pero que un usuario sí haría, seguridad básica.
+   el proceso, seguridad básica. Ataca todo de una vez: lo que no busques en esta ronda no lo agregues después.
 3. **Escribe pruebas que intenten romperlo** en `test/revision-<n>.test.*` (con el mismo runner del repo) y
-   córrelas. Una prueba que falla es un hallazgo; no arregles el código tú.
+   córrelas. No arregles el código tú.
+
+**Qué cuenta como hallazgo (`- [ ]`), y nada más:**
+- un criterio de aceptación del pendiente que no se cumple;
+- algo que el cambio introdujo y que tumba el proceso, corrompe datos o abre un hueco de seguridad.
+
+Lo demás (otros métodos o rutas, despliegues raros, mensajes más bonitos, «estaría bien que…») **no es hallazgo**:
+va como «Pendiente nuevo sugerido». Si dudas, no es hallazgo. El objetivo es que el pendiente cierre bien, no que
+el código sea perfecto.
 4. Corre también la suite completa del repo.
 5. Borra tu worktree al terminar: `git worktree remove ../rev-<n> --force`.
 

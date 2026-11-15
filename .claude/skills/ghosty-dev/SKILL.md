@@ -88,13 +88,13 @@ CI rojo no se publica como evidencia.
 
 Cuando la persona te diga qué hay que hacer («hay que paginar /pedidos»), tú abres el pendiente. Escribe un
 objetivo (qué debe quedar cierto) y criterios que se puedan comprobar. Si son varios, uno por pendiente, y marca
-los bloqueos. Enséñale a la persona la lista antes de crearlos.
+los bloqueos. Enséñale a la persona la lista antes de crearlos. Al crearlos, `add` le abre a la persona sus
+pendientes en el navegador (una vez por tanda); si quiere verlos otra vez, `ghosty-dev board`.
 
 ```sh
 ghosty-dev add "Paginar /pedidos" --goal "GET /pedidos responde por páginas de 20" \
   --criteria "acepta ?page=N" --criteria "hay un test por página"
 ghosty-dev add "Exportar CSV" --goal "…" --criteria "…" --by 12   # bloqueado por #12
-ghosty-dev board    # al terminar: le abre a la persona sus pendientes en GitHub
 ```
 
 ## Lo que descubras
