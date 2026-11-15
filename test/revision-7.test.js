@@ -22,7 +22,6 @@ after(() => new Promise((resolve) => server.close(resolve)));
 
 const url = (p) => `http://localhost:${port}${p}`;
 
-// Manda una petición cruda por socket y regresa la primera línea de la respuesta
 // Petición cruda por socket con «Connection: close»: espera a que el servidor cierre (evento close,
 // que llega tras end o tras un error) y regresa toda la respuesta. Sin temporizadores propios.
 function rawResponse(request) {
@@ -169,9 +168,26 @@ test('absolute-form se comportan', async () => {
   assert.match(await raw('OPTIONS * HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n'), / 404 /);
 });
 
+// Petición cruda que no pide cerrar: regresa en cuanto llega la status line (o el servidor corta),
+// sin esperar el corte por inactividad de la conexión keep-alive
+function rawStatusLine(request) {
+  return new Promise((resolve) => {
+    const sock = net.connect(port, '127.0.0.1', () => sock.write(request));
+    let data = '';
+    const done = () => { sock.destroy(); resolve(data.split('\r\n')[0]); };
+    sock.on('data', (c) => { data += c; if (data.includes('\r\n')) done(); });
+    sock.on('error', () => {});
+    sock.on('close', done);
+  });
+}
+
 test('CONNECT y Upgrade no tumban el servidor', async () => {
-  await raw('CONNECT a:443 HTTP/1.1\r\nHost: a:443\r\n\r\n');
-  await raw('GET /health HTTP/1.1\r\nHost: x\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n');
+  await rawStatusLine('CONNECT a:443 HTTP/1.1\r\nHost: a:443\r\n\r\n');
+  // Sin manejador de upgrade, Node la atiende como GET normal
+  assert.match(
+    await rawStatusLine('GET /health HTTP/1.1\r\nHost: x\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n'),
+    /^HTTP\/1\.1 200/,
+  );
   const res = await fetch(url('/health'));
   assert.equal(res.status, 200);
 });
