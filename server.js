@@ -1,10 +1,14 @@
 import http from 'node:http';
-import { realpathSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+
+// La versión sale de package.json (junto a este archivo, sin importar el cwd), leída al arrancar
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
 // Rutas del servidor: cada una regresa [status, cuerpo JSON]
 const routes = {
   'GET /health': () => [200, { ok: true }],
+  'GET /version': () => [200, { version }],
 };
 
 export function createServer() {
