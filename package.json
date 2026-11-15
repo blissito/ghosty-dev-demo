@@ -1,9 +1,9 @@
 {
   "name": "ghosty-dev-demo",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "app.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node server.mjs",
     "test": "node --test"
   },
   "keywords": [],

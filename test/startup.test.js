@@ -37,7 +37,7 @@ function run(args, { cwd = root, env = {}, cmd = process.execPath } = {}) {
     child.stdout.on('data', (c) => { out += c; if (/Escuchando/.test(out)) finish({ listened: true }); });
     child.stderr.on('data', (c) => (out += c));
     child.on('exit', (code) => finish({ listened: false, code }));
-    setTimeout(() => finish({ listened: false, code: null }), 5000);
+    setTimeout(() => finish({ listened: false, code: null }), 5000).unref();
   });
 }
 
@@ -82,11 +82,10 @@ test('puerto ocupado termina con un mensaje claro, sin el stack de EADDRINUSE', 
   }
 });
 
-// Copia app.js y server.js a una carpeta temporal con el package.json que se le pase (o ninguno)
+// Copia el código a una carpeta temporal con el package.json que se le pase (o ninguno)
 function withCopy(pkgText, fn) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gd11-'));
-  fs.copyFileSync(path.join(root, 'app.js'), path.join(dir, 'app.js'));
-  fs.copyFileSync(path.join(root, 'server.js'), path.join(dir, 'server.js'));
+  for (const f of ['app.js', 'server.js', 'server.mjs', 'version.mjs']) fs.copyFileSync(path.join(root, f), path.join(dir, f));
   if (pkgText !== null) fs.writeFileSync(path.join(dir, 'package.json'), pkgText);
   return fn(dir).finally(() => fs.rmSync(dir, { recursive: true, force: true }));
 }
@@ -100,9 +99,24 @@ test('sin package.json termina con un mensaje claro', () =>
 // Con el JSON roto, Node y npm leen package.json antes que nuestro código: el arranque documentado
 // (npm start) es el que debe dar el mensaje claro
 test('package.json mal formado: npm start termina con un mensaje claro', () =>
-  withCopy('{"type":"module", "scripts": {"start": "node server.js"}, "version": ', async (dir) => {
+  withCopy('{"type":"module", "scripts": {"start": "node server.mjs"}, "version": ', async (dir) => {
     assertCleanFailure(await run(['start'], { cwd: dir, cmd: 'npm' }), /Invalid package\.json/);
   }));
+
+test('package.json mal formado: node server.mjs termina con un mensaje claro', () =>
+  withCopy('{"type":"module", "version": ', async (dir) => {
+    assertCleanFailure(await run(['server.mjs'], { cwd: dir }), /Error: package\.json está mal formado/);
+  }));
+
+test('sin package.json: node server.mjs termina con un mensaje claro', () =>
+  withCopy(null, async (dir) => {
+    assertCleanFailure(await run(['server.mjs'], { cwd: dir }), /Error: No encuentro package\.json/);
+  }));
+
+test('node server.js sigue arrancando', async () => {
+  const r = await run(['server.js']);
+  assert.ok(r.listened, `código ${r.code}: ${r.out}`);
+});
 
 test('package.json válido pero sin "version" termina con un mensaje claro', () =>
   withCopy('{"type":"module"}', async (dir) => {

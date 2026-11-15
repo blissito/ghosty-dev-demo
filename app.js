@@ -1,24 +1,7 @@
 import http from 'node:http';
-import { readFileSync } from 'node:fs';
+import { readVersion } from './version.mjs';
 
-// Lee la versión del package.json que está junto a este archivo (no depende del cwd).
-// Si falta o está mal formado, lanza un error con un mensaje que se entiende solo.
-export function readVersion(pkgUrl = new URL('./package.json', import.meta.url)) {
-  let text;
-  try {
-    text = readFileSync(pkgUrl, 'utf8');
-  } catch {
-    throw new Error(`No encuentro package.json en ${pkgUrl.pathname}`);
-  }
-  let pkg;
-  try {
-    pkg = JSON.parse(text);
-  } catch {
-    throw new Error(`package.json está mal formado (${pkgUrl.pathname})`);
-  }
-  if (typeof pkg.version !== 'string') throw new Error('package.json no tiene un campo "version"');
-  return pkg.version;
-}
+export { readVersion };
 
 export function createServer({ version = readVersion() } = {}) {
   // Rutas del servidor: cada una regresa [status, cuerpo JSON]
