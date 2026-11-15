@@ -8,9 +8,16 @@ const routes = {
 
 export function createServer() {
   return http.createServer((req, res) => {
-    const path = new URL(req.url, 'http://localhost').pathname;
-    const handler = routes[`${req.method} ${path}`];
-    const [status, body] = handler ? handler() : [404, { error: 'not found' }];
+    let path;
+    try {
+      path = new URL(req.url, 'http://localhost').pathname;
+    } catch {
+      // Una URL malformada no debe tumbar el proceso: se responde 400
+      path = null;
+    }
+    const handler = path !== null && routes[`${req.method} ${path}`];
+    const [status, body] =
+      path === null ? [400, { error: 'bad request' }] : handler ? handler() : [404, { error: 'not found' }];
     res.writeHead(status, { 'content-type': 'application/json' });
     res.end(JSON.stringify(body));
   });
