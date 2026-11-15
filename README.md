@@ -35,7 +35,8 @@ $ curl localhost:3000/version
 {"version":"1.0.0"}
 ```
 
-Cualquier otra ruta responde 404.
+Las dos aceptan `HEAD` y la barra final (`/health/`). Cualquier otra ruta responde 404, y una URL mal formada
+responde 400.
 
 ## Tests
 

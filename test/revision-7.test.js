@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createServer } from '../server.js';
+import { createServer } from '../app.js';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 let server;
