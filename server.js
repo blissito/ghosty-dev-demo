@@ -37,6 +37,7 @@ const isMain = (() => {
   }
 })();
 if (isMain) {
-  const port = Number(process.env.PORT) || 3000;
+  // PORT=0 es válido (puerto libre que asigna el sistema); sólo sin PORT se usa el 3000
+  const port = process.env.PORT ? Number(process.env.PORT) : 3000;
   createServer().listen(port, () => console.log(`Escuchando en http://localhost:${port}`));
 }
