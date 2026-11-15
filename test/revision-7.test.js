@@ -23,16 +23,21 @@ after(() => new Promise((resolve) => server.close(resolve)));
 const url = (p) => `http://localhost:${port}${p}`;
 
 // Manda una petición cruda por socket y regresa la primera línea de la respuesta
-function raw(request) {
+// Petición cruda por socket con «Connection: close»: espera a que el servidor cierre (evento close,
+// que llega tras end o tras un error) y regresa toda la respuesta. Sin temporizadores propios.
+function rawResponse(request) {
   return new Promise((resolve, reject) => {
     const sock = net.connect(port, '127.0.0.1', () => sock.write(request));
     let data = '';
+    let failure = null;
     sock.on('data', (c) => (data += c));
-    sock.on('end', () => resolve(data.split('\r\n')[0]));
-    sock.on('error', reject);
-    sock.setTimeout(2000, () => { sock.destroy(); resolve(data.split('\r\n')[0]); });
+    sock.on('error', (err) => (failure = err));
+    sock.on('close', () => (data || !failure ? resolve(data) : reject(failure)));
   });
 }
+
+// Primera línea de la respuesta (status line)
+const raw = async (request) => (await rawResponse(request)).split('\r\n')[0];
 
 // Arranca un comando y dice si llegó a escuchar
 function start(cmd, args, cwd, env = {}) {
@@ -153,15 +158,9 @@ test('PORT=0 pide un puerto libre al sistema (no cae al 3000)', () =>
   }));
 
 test('HEAD /health no manda cuerpo', async () => {
-  const line = await new Promise((resolve) => {
-    const sock = net.connect(port, '127.0.0.1', () =>
-      sock.write('HEAD /health HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n'));
-    let d = '';
-    sock.on('data', (c) => (d += c));
-    sock.on('end', () => resolve(d));
-  });
-  assert.match(line, /^HTTP\/1\.1 200/);
-  assert.equal(line.split('\r\n\r\n')[1], '');
+  const res = await rawResponse('HEAD /health HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n');
+  assert.match(res, /^HTTP\/1\.1 200/);
+  assert.equal(res.split('\r\n\r\n')[1], '');
 });
 
 test('absolute-form se comportan', async () => {
