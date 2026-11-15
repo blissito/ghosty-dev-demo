@@ -70,6 +70,7 @@ los bloqueos. Enséñale a la persona la lista antes de crearlos.
 ghosty-dev add "Paginar /pedidos" --goal "GET /pedidos responde por páginas de 20" \
   --criteria "acepta ?page=N" --criteria "hay un test por página"
 ghosty-dev add "Exportar CSV" --goal "…" --criteria "…" --by 12   # bloqueado por #12
+ghosty-dev board    # al terminar: le abre a la persona sus pendientes en GitHub
 ```
 
 ## Lo que descubras
