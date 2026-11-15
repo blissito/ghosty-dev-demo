@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { createServer } from '../server.js';
+import { createServer } from '../app.js';
 
 let server;
 let base;
