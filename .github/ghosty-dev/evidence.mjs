@@ -85,8 +85,10 @@ export function validateEvidence(md, issueBody = '') {
 }
 
 // Arma el comentario que se publica en el issue.
-export function formatEvidence(number, md) {
-  return `${EVIDENCE_MARKER}\n## Evidencia del pendiente #${number}\n\n${md.trim()}\n`;
+// El PR va enlazado arriba para que la persona llegue al merge desde el issue.
+export function formatEvidence(number, md, pr = null) {
+  const prLine = pr?.url ? `PR: ${pr.url}\n\n` : '';
+  return `${EVIDENCE_MARKER}\n## Evidencia del pendiente #${number}\n\n${prLine}${md.trim()}\n`;
 }
 
 // De los comentarios de un issue, el último que sea evidencia válida (o null).
@@ -125,8 +127,9 @@ export function validateRevision(md) {
   return { ok: errors.length === 0, errors, open };
 }
 
-export function formatRevision(number, sha, md) {
-  return `${REVISION_MARKER} sha=${sha} -->\n**Revisión del pendiente #${number}, commit ${sha.slice(0, 7)}**\n\n${md.trim()}\n`;
+export function formatRevision(number, sha, md, pr = null) {
+  const prPart = pr?.url ? ` · PR: ${pr.url}` : '';
+  return `${REVISION_MARKER} sha=${sha} -->\n**Revisión del pendiente #${number}, commit ${sha.slice(0, 7)}**${prPart}\n\n${md.trim()}\n`;
 }
 
 // La última revisión válida del commit exacto (o null). Un push nuevo invalida las anteriores.

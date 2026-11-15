@@ -37,7 +37,7 @@ ghosty-dev evidence <n> --file evidencia.md   # valida el formato y lo publica e
 ```
 
 Después de publicarla, dile a la persona **dónde está y qué dice**: la liga del comentario (la imprime
-`ghosty-dev evidence`) y un resumen de tres renglones (qué se hizo, qué pruebas pasaron, CI). Que pueda decidir
+`ghosty-dev evidence`), **la liga del PR** (ahí da el merge) y un resumen de tres renglones (qué se hizo, qué pruebas pasaron, CI). Que pueda decidir
 el merge sin abrir el código.
 
 El PR lo mergea el **Clerk** (la persona) después de leer la evidencia; `Closes #<n>` cierra el pendiente.
