@@ -16,6 +16,10 @@ export function readVersion(pkgUrl = new URL('./package.json', import.meta.url))
   } catch {
     throw new Error(`package.json está mal formado (${pkgUrl.pathname})`);
   }
+  // JSON válido pero no un objeto (null, arreglo, número, texto)
+  if (pkg === null || typeof pkg !== 'object' || Array.isArray(pkg)) {
+    throw new Error(`package.json debe ser un objeto JSON (${pkgUrl.pathname})`);
+  }
   if (typeof pkg.version !== 'string') throw new Error('package.json no tiene un campo "version"');
   return pkg.version;
 }

@@ -118,6 +118,13 @@ test('node server.js sigue arrancando', async () => {
   assert.ok(r.listened, `código ${r.code}: ${r.out}`);
 });
 
+for (const [name, text] of Object.entries({ null: 'null', array: '[1, 2]', number: '42', string: '"1.0.0"' })) {
+  test(`package.json ${name}: node server.mjs termina con un mensaje claro`, () =>
+    withCopy(text, async (dir) => {
+      assertCleanFailure(await run(['server.mjs'], { cwd: dir }), /Error: package\.json debe ser un objeto JSON/);
+    }));
+}
+
 test('package.json válido pero sin "version" termina con un mensaje claro', () =>
   withCopy('{"type":"module"}', async (dir) => {
     assertCleanFailure(await run(['server.js'], { cwd: dir }), /Error: package\.json no tiene un campo "version"/);
