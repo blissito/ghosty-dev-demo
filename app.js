@@ -10,6 +10,8 @@ export function createServer({ version = readVersion() } = {}) {
     'GET /version': () => [200, { version }],
     // Segundos enteros desde que arrancó el proceso
     'GET /uptime': () => [200, { seconds: Math.floor(process.uptime()) }],
+    // Ruta mínima para comprobar que el servidor contesta
+    'GET /ping': () => [200, { pong: true }],
   };
 
   return http.createServer((req, res) => {
