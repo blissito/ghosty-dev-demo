@@ -16,6 +16,11 @@ export function createServer({ version = readVersion() } = {}) {
     'GET /time': () => [200, { now: new Date().toISOString() }],
     // Saluda a ?name=X; sin name, saluda al mundo
     'GET /hello': (url) => [200, { hello: url.searchParams.get('name') ?? 'mundo' }],
+    // Devuelve el valor de ?msg= tal cual (ya decodificado); sin msg, 400
+    'GET /echo': (url) =>
+      url.searchParams.has('msg')
+        ? [200, { echo: url.searchParams.get('msg') }]
+        : [400, { error: 'falta msg' }],
   };
 
   return http.createServer((req, res) => {
