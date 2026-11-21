@@ -14,12 +14,16 @@ export function createServer({ version = readVersion() } = {}) {
     'GET /ping': () => [200, { pong: true }],
     // Hora del servidor en ISO 8601 (UTC), para comprobar su reloj desde fuera
     'GET /time': () => [200, { now: new Date().toISOString() }],
+    // Saluda a ?name=X; sin name, saluda al mundo
+    'GET /hello': (url) => [200, { hello: url.searchParams.get('name') ?? 'mundo' }],
   };
 
   return http.createServer((req, res) => {
     let path;
+    let url;
     try {
-      path = new URL(req.url, 'http://localhost').pathname;
+      url = new URL(req.url, 'http://localhost');
+      path = url.pathname;
     } catch {
       // Una URL malformada no debe tumbar el proceso: se responde 400
       path = null;
@@ -31,7 +35,7 @@ export function createServer({ version = readVersion() } = {}) {
     const key = `${method} ${path}`;
     const handler = path !== null && Object.hasOwn(routes, key) && routes[key];
     const [status, body] =
-      path === null ? [400, { error: 'bad request' }] : handler ? handler() : [404, { error: 'not found' }];
+      path === null ? [400, { error: 'bad request' }] : handler ? handler(url) : [404, { error: 'not found' }];
     res.writeHead(status, { 'content-type': 'application/json' });
     res.end(JSON.stringify(body));
   });
