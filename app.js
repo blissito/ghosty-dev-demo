@@ -12,6 +12,8 @@ export function createServer({ version = readVersion() } = {}) {
     'GET /uptime': () => [200, { seconds: Math.floor(process.uptime()) }],
     // Ruta mínima para comprobar que el servidor contesta
     'GET /ping': () => [200, { pong: true }],
+    // Hora del servidor en ISO 8601 (UTC), para comprobar su reloj desde fuera
+    'GET /time': () => [200, { now: new Date().toISOString() }],
   };
 
   return http.createServer((req, res) => {
