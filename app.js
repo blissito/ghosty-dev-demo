@@ -8,6 +8,8 @@ export function createServer({ version = readVersion() } = {}) {
   const routes = {
     'GET /health': () => [200, { ok: true }],
     'GET /version': () => [200, { version }],
+    // Segundos enteros desde que arrancó el proceso
+    'GET /uptime': () => [200, { seconds: Math.floor(process.uptime()) }],
   };
 
   return http.createServer((req, res) => {
