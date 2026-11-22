@@ -1,0 +1,11 @@
+# Revisiones de Ghosty: dependencias, SAST, migraciones, contrato OpenAPI, bundle y cobertura del parche.
+# Todo vive en blissito/ghosty-dev (OSS y gratis); cada job dice «no aplica» si tu repo no lo necesita.
+name: ghosty-checks
+on: pull_request
+permissions:
+  contents: read
+jobs:
+  ghosty-checks:
+    uses: blissito/ghosty-dev/.github/workflows/checks.yml@v1
+    with:
+      runs-on: '"ubuntu-latest"' # repo privado con caja de CI de Ghosty: '["self-hosted","ws-<espacio>"]'
