@@ -21,7 +21,7 @@ gh pr diff <pr>                                     # qué se cambió
    `git fetch origin <rama> && git worktree add --detach ../rev-<n> origin/<rama>`.
 2. Piensa cómo se rompe el cambio: entradas raras o mal formadas, valores vacíos o enormes, errores que tumban
    el proceso, seguridad básica. Ataca todo de una vez: lo que no busques en esta ronda no lo agregues después.
-3. **Escribe pruebas que intenten romperlo** en `test/revision-<n>.test.*` (con el mismo runner del repo) y
+3. **Escribe pruebas que intenten romperlo** (identificadores en inglés; el nombre de la prueba, en español) en `test/revision-<n>.test.*` (con el mismo runner del repo) y
    córrelas. No arregles el código tú.
 
 **Qué cuenta como hallazgo (`- [ ]`), y nada más:**
@@ -31,7 +31,16 @@ gh pr diff <pr>                                     # qué se cambió
 Lo demás (otros métodos o rutas, despliegues raros, mensajes más bonitos, «estaría bien que…») **no es hallazgo**:
 va como «Pendiente nuevo sugerido». Si dudas, no es hallazgo. El objetivo es que el pendiente cierre bien, no que
 el código sea perfecto.
-4. Corre también la suite completa del repo.
+   **Ataca la clase, no el caso**: si el cambio arregla un defecto (o tú encuentras uno), busca sus variantes de la
+   misma clase: fuzz de profundidad y tamaño (anidado, vacío, enorme), entidades y escapes, y parsing diferencial
+   contra el parser real que usa la app (no contra una regex tuya). Un arreglo que tapa el ejemplo del issue y deja
+   la variante de al lado abierta es hallazgo.
+4. Corre también la suite completa del repo **y el build** (`npm run build`, o el comando de `build:` / `setup:` de
+   `.ghosty/factory.md` si lo declara). Pruebas y tsc en verde no bastan: un import de servidor en el cliente
+   («Server-only module referenced by client») sólo lo ve el build. Build roto = hallazgo, con su error.
+   **Ejerce el flujo principal con sesión** si el repo tiene vista previa (`ghosty-dev preview <pr> --wait --json`,
+   entrando con la identidad de Ghosty): usa la función principal del cambio, no sólo abras la página. Si truena
+   (p. ej. «Falta la credencial»), es hallazgo aunque el diff se vea bien.
 5. Borra tu worktree al terminar: `git worktree remove ../rev-<n> --force`.
 
 ## Qué publicas
@@ -48,12 +57,22 @@ $ <comando de tus pruebas>
 <salida>
 ```
 
+```sh
+$ npm run build
+<últimas líneas de la salida: verde o el error>
+```
+
 - [x] <ataque que el código aguantó>
 - [ ] <ataque que lo rompió> — <qué pasa> (`archivo:línea`)
 
+Ronda <N>: <cuántos hallazgos nuevos encontró esta ronda>
 Hallazgos abiertos: <número de renglones con [ ]>
 ~~~
 
 Al terminar, contesta a quien te llamó con: la liga que imprimió el comando, los hallazgos abiertos y el
 contenido completo de tu archivo de pruebas, para que lo agregue al PR. Si encuentras algo fuera del alcance del
 pendiente, dilo aparte como «Pendiente nuevo sugerido», sin contarlo como hallazgo.
+
+**El ciclo no cierra en la primera ronda limpia del caso, sino en la primera ronda sin hallazgos nuevos de la clase**:
+si te vuelven a llamar tras un arreglo, numera la ronda (`Ronda 2: …`), repite los ataques de la clase completa sobre
+el commit nuevo y sólo cuando una ronda da `0 nuevos` la revisión queda limpia. La evidencia lo muestra con esa línea.

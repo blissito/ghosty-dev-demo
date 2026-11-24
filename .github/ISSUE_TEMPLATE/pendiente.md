@@ -11,6 +11,11 @@ labels: ["ghosty-dev:por-hacer"]
 <!-- Cada uno se marca en el comentario de evidencia con el mismo texto. -->
 - [ ] 
 
+## Flujo principal probado con sesión
+<!-- Obligatorio en la evidencia y en el PR: qué función principal se usa con sesión en la vista previa y cómo
+     (p. ej. «entrar con la identidad de Ghosty y mandar un mensaje en el chat de Crear»), con captura o salida.
+     Abrir la página no cuenta. Sin interfaz ni login: «no aplica: <motivo>». -->
+
 ## Contexto
 <!-- Ligas, archivos, decisiones previas. -->
 
