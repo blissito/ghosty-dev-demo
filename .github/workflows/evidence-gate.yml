@@ -4,23 +4,136 @@
 name: ghosty-dev
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    # ready_for_review: en borrador la puerta no exige nada; al marcarlo listo vuelve a correr y exige todo.
+    types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft]
+  # Publicar evidencia o revisión (con su marca) vuelve a correr la puerta del PR que cierra ese pendiente, aunque se
+  # publique sin el CLI. Un run de issue_comment no cuelga del commit del PR, así que no juzga: re-corre el run de la
+  # puerta de ese commit (job «redisparo»).
+  issue_comment:
+    types: [created, edited]
 permissions:
   contents: read
   issues: read
   pull-requests: read
   checks: read
+  # Para marcar la puerta «pendiente de la persona» (criterios `- [~]`) sin ponerla roja.
+  statuses: write
 jobs:
   evidencia:
     name: ghosty-dev/evidencia
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      # El script sale de la rama base: un PR no puede aflojar su propia puerta.
+      # El script sale de la rama base: un PR no puede aflojar su propia puerta. Por NOMBRE (la punta actual de
+      # la rama base), no por `base.sha`: ése es el commit base de cuando se abrió el PR y, en un PR abierto antes
+      # de instalar ghosty-dev, todavía no trae gate.mjs (Formmy #73, 22-nov: MODULE_NOT_FOUND).
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.pull_request.base.ref }}
           sparse-checkout: .github/ghosty-dev
-      - run: node .github/ghosty-dev/gate.mjs
+      # Sin script en la base (repo sin ghosty-dev instalado todavía): pasa con aviso. Con script que no carga o truena:
+      # ROJO con el error limpio y el remedio (falla cerrada). El script se lee SÓLO de la base. Un gate.mjs viejo (sin
+      # `main` exportado) se corre como antes.
+      - run: |
+          node --input-type=module -e '
+            import { appendFileSync, existsSync, readFileSync } from "node:fs";
+            import { execFileSync, spawnSync } from "node:child_process";
+            const path = ".github/ghosty-dev/gate.mjs";
+            const skip = (why) => {
+              const text = `- La puerta no corrió: ${why} Se exige en cuanto la rama base tenga ghosty-dev (ghosty-dev init + push a la base).`;
+              console.log(`::notice title=ghosty-dev/evidencia::${text.slice(2)}`);
+              if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### ghosty-dev/evidencia\n${text}\n`);
+              process.exit(0);
+            };
+            const base = process.env.GITHUB_BASE_REF || "la rama base";
+            const broke = (what, e) => {
+              const why = String(e?.code ?? e?.message ?? e).replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 200);
+              const text = `- La puerta ${what} (${why}). Arregla .github/ghosty-dev/gate.mjs en ${base}; una persona puede mezclar a mano el PR que lo arregla.`;
+              console.log(`::error title=evidencia::${text.slice(2)}`);
+              if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### ghosty-dev/evidencia\n${text}\n`);
+              process.exit(1);
+            };
+            // PR en conflicto con la base: la puerta lo dice y falla con esa causa, sin correr el script (Formmy, fila 33:
+            // #73 en DIRTY daba un failure mudo). GitHub calcula mergeable en segundo plano: null → reintento.
+            const ev = (() => { try { return JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8")); } catch { return {}; } })();
+            const pr = ev.pull_request ?? {};
+            const isDirty = (p) => p?.mergeable === false || p?.mergeable_state === "dirty";
+            let dirty = isDirty(pr) ? pr : null;
+            const waitMs = Number(process.env.GHOSTY_DEV_MERGE_RETRY_MS ?? 3000);
+            for (let i = 0; !dirty && pr.number && i < 4; i++) {
+              let p;
+              try { p = JSON.parse(execFileSync(process.env.GHOSTY_DEV_GH || "gh", ["api", `repos/{owner}/{repo}/pulls/${pr.number}`], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })); } catch { break; }
+              if (p?.mergeable !== null && p?.mergeable !== undefined) { if (isDirty(p)) dirty = p; break; }
+              if (i < 3) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, waitMs);
+            }
+            if (dirty) {
+              const head = String(dirty.head?.ref ?? pr.head?.ref ?? "<rama-del-PR>").replace(/[^\w./-]/g, "");
+              const text = `- El PR está en conflicto con ${base}: resuélvelo antes que nada (la puerta no juzga hasta entonces). git fetch origin && git switch ${head} && git merge origin/${base} → resuelve los archivos marcados, git add, git commit y git push. (ghosty-dev next lo dice con los archivos.)`;
+              const draft = pr.draft === true;
+              console.log(`::${draft ? "notice" : "error"} title=evidencia::${text.slice(2)}`);
+              if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### ghosty-dev/evidencia\n${text}\n`);
+              process.exit(draft ? 0 : 1);
+            }
+            if (!existsSync(path)) skip(`${base} no tiene .github/ghosty-dev/gate.mjs.`);
+            let gate;
+            try { gate = await import(`${process.cwd()}/${path}`); } catch (e) { broke("no carga su script", e); }
+            if (typeof gate.main !== "function") process.exit(spawnSync(process.execPath, [path], { stdio: "inherit" }).status ?? 1);
+            try { gate.main(); } catch (e) { broke("tronó", e); }
+          '
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+  redisparo:
+    # Otro nombre a propósito: este job no es la puerta ni cuenta como ella; sólo la vuelve a correr.
+    name: ghosty-dev/redisparo
+    if: >-
+      github.event_name == 'issue_comment' &&
+      (contains(github.event.comment.body, '<!-- ghosty-dev:evidencia') || contains(github.event.comment.body, '<!-- ghosty-dev:revision') || contains(github.event.comment.body, '<!-- ghosty-dev:confirmacion'))
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      # No hace checkout ni corre código del PR: sólo lee PRs y re-corre el último run de la puerta de su commit HEAD.
+      - run: |
+          node --input-type=module -e '
+            import { execFileSync } from "node:child_process";
+            import { readFileSync } from "node:fs";
+            const gh = process.env.GHOSTY_DEV_GH || "gh";
+            const api = (method, path) => {
+              try {
+                const out = execFileSync(gh, ["api", "-X", method, path], { encoding: "utf8" });
+                return out.trim() ? JSON.parse(out) : {};
+              } catch { return null; }
+            };
+            const ev = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
+            const n = ev.issue?.number;
+            const wf = (process.env.GITHUB_WORKFLOW_REF || "").match(/\.github\/workflows\/([^@]+)@/)?.[1] || "evidence-gate.yml";
+            const CLOSING = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)\b/gi;
+            let prs = [];
+            if (ev.issue?.pull_request) {
+              const p = api("GET", `repos/{owner}/{repo}/pulls/${n}`);
+              if (p?.state === "open") prs = [p];
+            } else {
+              const all = [];
+              for (let page = 1; page <= 5; page++) {
+                const got = api("GET", `repos/{owner}/{repo}/pulls?state=open&per_page=100&page=${page}`) ?? [];
+                all.push(...got);
+                if (got.length < 100) break;
+              }
+              prs = all.filter((p) => [...String(p.body ?? "").matchAll(CLOSING)].some((m) => Number(m[1]) === n));
+            }
+            if (!prs.length) console.log(`#${n} no lo cierra ningún PR abierto: no hay puerta que volver a correr.`);
+            for (const p of prs) {
+              const sha = p.head?.sha ?? "";
+              const run = api("GET", `repos/{owner}/{repo}/actions/workflows/${wf}/runs?head_sha=${sha}&event=pull_request&per_page=1`)?.workflow_runs?.[0];
+              if (!run) console.log(`PR #${p.number}: todavía no hay run de la puerta en ${sha.slice(0, 7)}.`);
+              else if (run.status !== "completed") console.log(`PR #${p.number}: la puerta sigue corriendo y lee los comentarios en vivo.`);
+              else console.log(api("POST", `repos/{owner}/{repo}/actions/runs/${run.id}/rerun`) !== null ? `PR #${p.number}: puerta vuelta a correr (run ${run.id}).` : `PR #${p.number}: no se pudo volver a correr la puerta (run ${run.id}).`);
+            }
+          '
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
